@@ -24,7 +24,7 @@
         return;
       }
       const s = document.createElement('script');
-      s.src = "https://unpkg.com/tesseract.js@4/dist/tesseract.min.js";
+      s.src = "https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js";
       s.defer = true;
       s.async = false;
       s.setAttribute('data-tesseract-fallback', '1');
@@ -148,12 +148,27 @@
       // Ensure Tesseract is loaded robustly
       await ensureTesseractLoaded();
       if (!worker) {
+        if (!window.Tesseract.createWorker) {
+          throw new Error(
+            "Tesseract.js createWorker API is not available. " +
+            "Please ensure you are using a supported Tesseract.js version (2.x) and the script loaded successfully."
+          );
+        }
         worker = window.Tesseract.createWorker({
           logger: m => { if (OcrService.onProgress) OcrService.onProgress(m); }
         });
-        await worker.load();
-        await worker.loadLanguage('eng');
-        await worker.initialize('eng');
+        // Compatibility guard for Tesseract.js v2.x/v4.x API
+        // v2.x: has load/loadLanguage/initialize; v4.x missing load
+        if (typeof worker.load === "function") {
+          await worker.load();
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
+        } else if (typeof worker.loadLanguage === "function" && typeof worker.initialize === "function") {
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
+        } else {
+          throw new Error("Tesseract.js worker API mismatch; could not load engine.");
+        }
       }
     }
 
