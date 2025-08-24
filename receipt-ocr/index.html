@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Receipt OCR - Smart Table Extractor</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js" defer></script>
 </head>
 <body>
   <header>
@@ -47,6 +47,8 @@
       <h2>Parsed Results</h2>
       <div class="table-controls">
         <button id="export-csv" class="secondary-btn">Export CSV</button>
+        <button id="copy-csv" class="secondary-btn">Copy CSV</button>
+        <button id="copy-tsv" class="secondary-btn">Copy TSV</button>
         <button id="export-json" class="secondary-btn">Export JSON</button>
       </div>
       <div class="table-scroll-container">

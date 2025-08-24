@@ -11,6 +11,34 @@
   function round2(x) { return Math.round(x * 100) / 100; }
   function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
+  // Robustly ensure Tesseract is loaded, with fallback and error UI
+  async function ensureTesseractLoaded() {
+    if (typeof window.Tesseract !== "undefined") return;
+    // Try loading from alternate CDN
+    await new Promise((resolve, reject) => {
+      // Avoid loading again if already injected
+      if (document.querySelector('script[data-tesseract-fallback]')) {
+        // wait for load/error on that script
+        document.querySelector('script[data-tesseract-fallback]').addEventListener('load', resolve);
+        document.querySelector('script[data-tesseract-fallback]').addEventListener('error', reject);
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = "https://unpkg.com/tesseract.js@4/dist/tesseract.min.js";
+      s.defer = true;
+      s.async = false;
+      s.setAttribute('data-tesseract-fallback', '1');
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    // Check again
+    await new Promise(res => setTimeout(res, 100)); // allow window.Tesseract to appear
+    if (typeof window.Tesseract === "undefined") {
+      throw new Error("Failed to load Tesseract.js. Please check your internet connection or try reloading the page. If the problem persists, contact support.");
+    }
+  }
+
   // Module: ImageLoader
   const ImageLoader = (function() {
     let image = null, url = null, angle = 0;
@@ -117,8 +145,10 @@
     let busy = false;
 
     async function init() {
+      // Ensure Tesseract is loaded robustly
+      await ensureTesseractLoaded();
       if (!worker) {
-        worker = Tesseract.createWorker({
+        worker = window.Tesseract.createWorker({
           logger: m => { if (OcrService.onProgress) OcrService.onProgress(m); }
         });
         await worker.load();
@@ -146,7 +176,7 @@
       }
     }
 
-    return { recognize, terminate, onProgress: null };
+    return { recognize, terminate, onProgress: null, init };
   })();
 
   // Module: WalmartExpander
@@ -336,6 +366,16 @@
       runOcr();
     });
 
+    // Copy buttons
+    const copyCsvBtn = $('#copy-csv');
+    const copyTsvBtn = $('#copy-tsv');
+    if (copyCsvBtn) copyCsvBtn.addEventListener('click', () => {
+      copyCsv(currentRows);
+    });
+    if (copyTsvBtn) copyTsvBtn.addEventListener('click', () => {
+      copyTsv(currentRows);
+    });
+
     exportCsvBtn.addEventListener('click', () => {
       exportCsv(currentRows);
     });
@@ -407,19 +447,34 @@
       errorBanner.style.display = '';
     }
 
-    function runOcr() {
+    async function runOcr() {
       if (isOcrRunning) return;
       isOcrRunning = true;
       progressText.textContent = 'Preprocessing image...';
       errorBanner.style.display = 'none';
+
+      // Robustly ensure Tesseract is loaded before continuing
+      try {
+        await ensureTesseractLoaded();
+      } catch (err) {
+        showError(err && err.message ? err.message : String(err));
+        isOcrRunning = false;
+        return;
+      }
+
       // Preprocess
       const img = ImageLoader.getImage();
-      if (!img) return showError('No image loaded.');
+      if (!img) {
+        showError('No image loaded.');
+        isOcrRunning = false;
+        return;
+      }
       const canvas = Preprocessor.preprocess({
         image: img,
         angle: ImageLoader.getAngle(),
         enhance
       });
+
       // OCR
       progressText.textContent = 'Running OCR...';
       OcrService.onProgress = m => {
@@ -440,7 +495,7 @@
         progressText.textContent = 'Done!';
         isOcrRunning = false;
       }).catch(e => {
-        showError('OCR failed: ' + (e && e.message || e));
+        showError((e && e.message) ? e.message : 'OCR failed: ' + String(e));
         isOcrRunning = false;
       });
     }
@@ -502,12 +557,7 @@
     }
 
     function exportCsv(rows) {
-      let csv = 'Description,Quantity,Unit Price,Line Total\n';
-      rows.forEach(r => {
-        csv += [r.description, r.quantity, r.unitPrice, r.lineTotal].map(x =>
-          '"' + ('' + x).replace(/"/g, '""') + '"'
-        ).join(',') + '\n';
-      });
+      let csv = makeCsv(rows);
       downloadText(csv, 'receipt.csv', 'text/csv');
     }
     function exportJson(rows) {
@@ -519,6 +569,58 @@
       const a = document.createElement('a');
       a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
+    }
+
+    // Copy CSV/TSV to clipboard with fallback
+    function makeCsv(rows) {
+      let csv = 'Description,Quantity,Unit Price,Line Total\n';
+      rows.forEach(r => {
+        csv += [r.description, r.quantity, r.unitPrice, r.lineTotal].map(x =>
+          '"' + ('' + x).replace(/"/g, '""') + '"'
+        ).join(',') + '\n';
+      });
+      return csv;
+    }
+    function makeTsv(rows) {
+      let tsv = 'Description\tQuantity\tUnit Price\tLine Total\n';
+      rows.forEach(r => {
+        tsv += [r.description, r.quantity, r.unitPrice, r.lineTotal].join('\t') + '\n';
+      });
+      return tsv;
+    }
+    async function copyCsv(rows) {
+      let csv = makeCsv(rows);
+      await copyToClipboard(csv, 'CSV');
+    }
+    async function copyTsv(rows) {
+      let tsv = makeTsv(rows);
+      await copyToClipboard(tsv, 'TSV');
+    }
+    async function copyToClipboard(text, kind) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showCopyHint(kind);
+      } catch (e) {
+        // Fallback
+        let ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          showCopyHint(kind);
+        } catch (err) {
+          showError('Could not copy ' + kind + ' to clipboard.');
+        }
+        ta.remove();
+      }
+    }
+    function showCopyHint(kind) {
+      progressText.textContent = 'Copied ' + kind + ' to clipboard';
+      setTimeout(() => {
+        if (progressText.textContent === 'Copied ' + kind + ' to clipboard')
+          progressText.textContent = '';
+      }, 1700);
     }
 
     // Init: Try to load sample on first visit
