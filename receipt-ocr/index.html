@@ -1,83 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Receipt OCR</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
-  <!-- Tesseract.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt OCR Demo</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    <h1>Receipt OCR</h1>
-    <p class="subtitle">Extract and analyze receipt items &amp; totals from images using client-side OCR.</p>
-  </header>
-  <main>
-    <section id="upload-section" class="card">
-      <div id="drop-area">
-        <label for="file-input" id="drop-label">
-          <span>Drag &amp; drop receipt image here, or <strong>Browse</strong></span>
-        </label>
-        <input type="file" id="file-input" accept="image/*">
-        <div>
-          <button id="try-sample-btn" type="button">Try sample</button>
-        </div>
-        <div id="img-preview-container" class="img-preview-container">
-          <canvas id="img-canvas" style="display:none"></canvas>
-          <img id="img-preview" src="" alt="Image preview" style="display:none"/>
-        </div>
-      </div>
-      <div id="controls">
-        <label><input type="checkbox" id="enhance"> Auto enhance image</label>
-        <label class="walmart-mode-label">
-          <input type="checkbox" id="walmart-mode">
-          Walmart mode
-          <span class="tooltip" tabindex="0" aria-label="Expand common Walmart abbreviations in item descriptions. Not guaranteed 100% accurate.">?</span>
-        </label>
-        <button id="rotate-left" type="button" title="Rotate Left">&larr;</button>
-        <button id="rotate-right" type="button" title="Rotate Right">&rarr;</button>
-        <button id="start-ocr" type="button" class="primary">Start OCR</button>
-        <button id="clear" type="button">Clear</button>
-      </div>
-      <div id="progress" class="progress"><span id="progress-text"></span></div>
-      <div id="error-banner" class="error-banner" style="display:none;">
-        <span id="error-msg"></span>
-        <button id="dismiss-error" aria-label="Dismiss error">&times;</button>
-      </div>
-    </section>
-    <section id="results-section" class="card" style="display:none;">
-      <h2>Extracted Items</h2>
-      <div class="table-responsive">
-        <table id="results-table">
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th>Qty</th>
-              <th>Unit Price</th>
-              <th>Line Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- JS populates -->
-          </tbody>
-          <tfoot>
-            <!-- JS populates subtotal, tax, total -->
-          </tfoot>
-        </table>
-      </div>
-      <div class="result-actions">
-        <button id="export-csv" type="button">Export CSV</button>
-        <button id="export-json" type="button">Export JSON</button>
-      </div>
-    </section>
-  </main>
-  <footer>
-    <small>
-      Pure client-side, privacy-friendly. Powered by <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener">Tesseract.js</a>.
-      <span class="github-link"><a href="https://github.com/" target="_blank" rel="noopener">Source</a></span>
-    </small>
-  </footer>
-  <script src="app.js"></script>
+    <div class="container">
+        <h1>Receipt OCR Demo</h1>
+        <form id="uploadForm">
+            <label for="imageInput" class="upload-label">
+                <span>Upload a receipt image</span>
+                <input type="file" id="imageInput" accept="image/*" />
+            </label>
+        </form>
+        <div id="imagePreview"></div>
+        <button id="runOcrBtn" disabled>Run OCR</button>
+        <pre id="ocrResult"></pre>
+        <h2>Sample Receipt</h2>
+        <img src="sample/receipt_sample.png" alt="Sample Receipt" class="sample-img" />
+    </div>
+    <script src="app.js"></script>
 </body>
 </html>
